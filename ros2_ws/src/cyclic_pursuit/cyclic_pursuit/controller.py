@@ -1,6 +1,7 @@
 from std_srvs.srv import Trigger
 import rclpy
 import os
+import math
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
@@ -9,7 +10,6 @@ import numpy as np
 from cyclic_pursuit.functions.utils import *
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 from rclpy.parameter import ParameterValue, ParameterType
-from crazyflie_py import Crazyswarm
 
 qos_profile = QoSProfile(depth=20)
 qos_profile.reliability = ReliabilityPolicy.RELIABLE
@@ -26,6 +26,16 @@ global pij_save
 global vis_zone_vec2
 global utj_vec
 global gamma_ij_glob
+
+
+def valid_pose(msg):
+    """Reject non-finite positions and invalid quaternions before control."""
+    p, q = msg.pose.position, msg.pose.orientation
+    values = (p.x, p.y, p.z, q.x, q.y, q.z, q.w)
+    if not all(math.isfinite(float(value)) for value in values):
+        return False
+    norm_squared = q.x*q.x + q.y*q.y + q.z*q.z + q.w*q.w
+    return 0.8 <= norm_squared <= 1.2
 
 
 class Crazyflie(Node):
@@ -51,6 +61,9 @@ class Crazyflie(Node):
         self.name = name
         self.id = id
         self.pose = None  # No control command until the first measured pose arrives
+        self.last_pose_ns = None
+        self.other_pose_time_ns = {}
+        self.max_pose_age_ns = 1_000_000_000  # 1 second of silence: stop publishing commands
         self.other_cfs_names = cfs_names
         self.other_odom = {cf_name: None for cf_name in self.other_cfs_names if cf_name != name}
         self.pose_subscription = self.create_subscription(
@@ -96,12 +109,13 @@ class Crazyflie(Node):
         response.message = f"{self.name} is landing."
         return response
 
-    def pose_sub(self,msg):
-        
+    def pose_sub(self, msg):
+        if not valid_pose(msg):
+            self.pose = None
+            return
         yaw = yaw_from_quaternion(msg.pose.orientation)
-
-        self.pose = [msg.pose.position.x,msg.pose.position.y,yaw]
-        # self.get_logger().infoself.landing_timer = None(f'Pose_sub for cf: {self.id}: {str(self.pose)}')
+        self.pose = [msg.pose.position.x, msg.pose.position.y, yaw]
+        self.last_pose_ns = self.get_clock().now().nanoseconds
         self.publish_odom(msg)
 
     def publish_odom(self, measured_pose):
@@ -116,19 +130,28 @@ class Crazyflie(Node):
     def odom_callback(self,msg):
         sender_name = msg.header.frame_id
         # self.get_logger().info(f'Msg: {msg.header.frame_id} and other_odom.keys() {self.other_odom.keys()}')
-        if sender_name in self.other_odom.keys():
+        if sender_name in self.other_odom:
+            if not valid_pose(msg):
+                self.other_odom[sender_name] = None
+                self.other_pose_time_ns.pop(sender_name, None)
+                return
             self.other_odom[sender_name] = [
                 msg.pose.position.x,
                 msg.pose.position.y,
                 yaw_from_quaternion(msg.pose.orientation),
             ]
-            # self.get_logger().info(f'odom callback {self.other_odom}')
-            self.odom_ready = True
+            self.other_pose_time_ns[sender_name] = self.get_clock().now().nanoseconds
     
 
     def controller(self):
         # Do not steer using fabricated zero poses while neighbors are absent.
         if self.pose is None or any(pose is None for pose in self.other_odom.values()):
+            return
+        now_ns = self.get_clock().now().nanoseconds
+        if self.last_pose_ns is None or now_ns - self.last_pose_ns > self.max_pose_age_ns:
+            return
+        if any(now_ns - self.other_pose_time_ns.get(name, -10**18) > self.max_pose_age_ns
+               for name in self.other_odom):
             return
         # if not self.odom_ready:
         #     self.get_logger().warn("Waiting for odom data.")
@@ -281,6 +304,7 @@ def main(args=None):
             'Automatic takeoff disabled. Set CYCLIC_PURSUIT_ENABLE_FLIGHT=1 '
             'only after validating the full ROS 2 setup in simulation.'
         )
+    from crazyflie_py import Crazyswarm  # Hardware dependency is never loaded by cloud integration tests.
     TAKEOFF_DURATION = 2.5
     swarm = Crazyswarm()
     timeHelper = swarm.timeHelper

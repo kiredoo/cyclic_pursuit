@@ -48,6 +48,15 @@ jobs:
             ros2 pkg executables cyclic_pursuit | grep -Fq "cyclic_pursuit $name"
           done
 
+      - name: Test ROS 2 topics with synthetic poses (no drones)
+        env:
+          PYTHONPATH: ros2_ws/src/cyclic_pursuit
+          ROS_DOMAIN_ID: '117'
+        run: |
+          source /opt/ros/humble/setup.bash
+          source ros2_ws/install/setup.bash
+          python3 -m pytest -q -s ros2_ws/src/cyclic_pursuit/test/test_ros2_topics.py
+
       - name: Run non-ROS controller tests
         env:
           PYTHONPATH: ros2_ws/src/cyclic_pursuit
@@ -56,5 +65,5 @@ jobs:
             ros2_ws/src/cyclic_pursuit/test/test_control_logic.py \
             ros2_ws/src/cyclic_pursuit/test/test_example_config.py
 
-# Scope: compile, colcon build, discovery and pure-Python tests only.
-# Does not validate Crazyswarm2 integration or run any hardware/flight commands.
+# Scope: compile, colcon build, ROS 2 pub/sub with synthetic poses, and Python tests.
+# Never starts Crazyswarm2 or drone hardware. Not a closed-loop physics simulation.

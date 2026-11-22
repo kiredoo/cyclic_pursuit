@@ -64,3 +64,19 @@ Outstanding checks include:
 - Fix remaining package license placeholders only after confirming the intended license and collaborator approval.
 
 The code is a research prototype, not a ready-to-fly release.
+
+
+## Cloud-only ROS 2 integration test
+
+GitHub Actions now runs `test/test_ros2_topics.py` in the ROS 2 Humble
+container. It creates three real `rclpy` controller nodes and synthetic
+`PoseStamped` publishers, then observes their `Twist` commands. It checks
+that commands are withheld until all agents report poses, verifies finite
+control output, rejects a zero quaternion, and checks that commands stop after
+pose updates become stale.
+
+No Crazyswarm2 driver or drone is started. This integration test does **not**
+simulate robot dynamics, guarantee formation convergence, or validate a safe
+flight controller. It also does not provide a fail-safe motor-stop command if
+real localization is lost. Keep the project in non-flight testing until those
+issues are addressed.
