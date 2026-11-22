@@ -170,3 +170,60 @@ small run-to-run differences despite seeded noise.
 This is a planar kinematic plant, not a rigid-body flight simulator:
 rotor forces, actuator bounds, correlated sensing failures, physical
 radio networks, collision physics, and fail-safe landing remain untested.
+
+## Paper-aligned initial-condition convergence study
+
+The module `sim/paper_validation.py` implements a compact deterministic
+three-agent planar model using the controller's configured equations. It
+computes the equilibrium radius from Equation (14) of Ceccarelli et al.,
+*Collective circular motion of multi-vehicle systems* (Automatica, 2008),
+and verifies numerical/geometrical conditions 13, 33, 35, and 45.
+
+From the repository root in an environment with NumPy, PyYAML, Matplotlib
+and the ROS 2 package on PYTHONPATH:
+
+```bash
+export PYTHONPATH=ros2_ws/src/cyclic_pursuit
+python3 -m pytest -q ros2_ws/sim/test_paper_validation.py
+python3 ros2_ws/sim/run_paper_study.py --trials 100 --duration 160 --dt 0.05
+```
+
+The 100 independent seeded initial conditions use **three robots**, radial
+positions uniformly sampled between 1 and 3 m, heading angles uniformly
+sampled in [-pi, pi], and initial angular sectors perturbed by +/-0.5 rad.
+This is **not an exact reproduction** of the original paper's four- and
+six-agent random-initial-condition studies.
+
+Convergence diagnostics measure each agent's absolute distance from the
+theoretical equilibrium radius, plus its heading deviation from the
+counterclockwise tangential heading. The operational `first_five_second_dwell_s`
+is the first time all three robots remain within 0.1 m radial error and
+0.2 rad heading error for **five consecutive simulated seconds**. Passing this
+finite-time criterion does not prove asymptotic stability or that errors
+will remain small forever. Trials not meeting it within 160 seconds are
+censored, not declared divergent.
+
+We separately record minimum pairwise separation (including whether the
+original configuration already violates `ds=1.0 m`), closest approach
+after five seconds, and duration spent below `ds`. The simulator uses
+point robots, so `ds` is a diagnostic design threshold, not a collision
+model.
+
+Pure-Python tests compare the compact model's instantaneous control inputs
+against the existing `cyclic_pursuit.functions.utils` functions for
+several seeded configurations. GitHub Actions also runs a matching 35-second
+ROS 2 random-seed-19 trajectory and checks that final mean radius, final
+radial spread, and minimum pairwise separation agree within 0.10 m. This
+comparison captures selected aggregate metrics, not identical event timing
+or full trajectory equality.
+
+The `paper-convergence-study` GitHub Actions artifact contains
+`trials.csv`, `summary.json`, `summary.md`,
+`convergence_times.png`, and `distance_vs_error.png`.
+
+**Implementation caveat:** the existing controller suppresses its beacon
+control term for `rho < 0.1 m`, whereas the paper's corresponding
+discontinuity is stated at `rho = 0`. The study deliberately preserves
+the implemented ROS 2 behavior instead of silently modifying the control
+law. The simulator's command sign/unit conversion must still be verified
+against any future Crazyflie driver.

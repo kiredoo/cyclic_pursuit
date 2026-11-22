@@ -32,6 +32,7 @@ from rclpy.node import Node
 from cyclic_pursuit.controller import Crazyflie
 from cyclic_pursuit.functions.utils import validate_swarm_configuration
 from kinematics import command_to_unicycle, integrate_unicycle
+from paper_validation import equilibrium_radius, paper_parameter_checks
 
 
 # Deliberately non-identical radii and headings so the controller must respond.
@@ -223,6 +224,25 @@ def export_results(world, output_dir, requested_duration):
         for i, j in pairs
     ])
     mean_radius = radius.mean(axis=1)
+    paper = paper_parameter_checks(configuration()[0])
+    rho_e = paper["equilibrium_radius_m"]
+    radial_error = np.abs(radius - rho_e)
+    theta = states[:, :, 2]
+    gamma = np.mod(np.arctan2(-positions[:, :, 1], -positions[:, :, 0]) - theta,
+                   2 * np.pi)
+    heading_error = np.abs(np.arctan2(
+        np.sin(gamma - np.pi/2), np.cos(gamma - np.pi/2)
+    ))
+    in_band = np.all(radial_error < 0.1, axis=1) & np.all(heading_error < 0.2, axis=1)
+    dwell_steps = max(1, int(round(5.0 / world.dt)))
+    first_dwell = None
+    if len(in_band) >= dwell_steps:
+        contiguous = np.convolve(
+            in_band.astype(int), np.ones(dwell_steps, dtype=int), mode="valid"
+        )
+        accepted = np.where(contiguous == dwell_steps)[0]
+        if accepted.size:
+            first_dwell = float(t[int(accepted[0])])
     final_window = max(2, int(5.0 / world.dt))
     final_window = min(final_window, len(t))
     start_mean = float(mean_radius[0])
@@ -251,6 +271,18 @@ def export_results(world, output_dir, requested_duration):
         "initial_mean_radius_m": start_mean,
         "final_mean_radius_m": final_mean,
         "final_radius_std_m": final_spread,
+        "paper_equilibrium_radius_m": rho_e,
+        "paper_parameter_checks": paper["checks"],
+        "final_max_abs_radius_error_m": float(radial_error[-1].max()),
+        "final_radial_errors_m": {
+            name: float(radial_error[-1, i]) for i, name in enumerate(world.names)
+        },
+        "final_max_abs_heading_error_rad": float(heading_error[-1].max()),
+        "final_heading_errors_rad": {
+            name: float(heading_error[-1, i]) for i, name in enumerate(world.names)
+        },
+        "final_in_radial_heading_band": bool(in_band[-1]),
+        "first_five_second_dwell_s": first_dwell,
         "last_five_seconds_mean_radius_change_m": late_change,
         "minimum_pairwise_separation_m": float(pairwise.min()),
         "final_pairwise_separations_m": {
@@ -273,6 +305,10 @@ def export_results(world, output_dir, requested_duration):
         ax.scatter(positions[-1, i, 0], positions[-1, i, 1],
                    marker="x", color=line.get_color(), s=55)
     ax.scatter(0, 0, marker="*", s=110, label="Reference origin")
+    eq_circle = plt.Circle(
+        (0, 0), rho_e, fill=False, linestyle="--", alpha=0.6, label="Paper Eq. (14)"
+    )
+    ax.add_patch(eq_circle)
     ax.set(xlabel="x (m)", ylabel="y (m)", title="Closed-loop virtual robot trajectories")
     ax.set_aspect("equal", adjustable="box")
     ax.grid(True, alpha=0.3)
@@ -284,6 +320,7 @@ def export_results(world, output_dir, requested_duration):
     fig, ax = plt.subplots(figsize=(8, 4))
     for i, name in enumerate(world.names):
         ax.plot(t, radius[:, i], label=name)
+    ax.axhline(rho_e, linestyle="--", alpha=0.6, label="Paper Eq. (14)")
     ax.set(xlabel="Simulation time (s)", ylabel="Distance from origin (m)",
            title="Agent radii")
     ax.grid(True, alpha=0.3)
@@ -301,6 +338,30 @@ def export_results(world, output_dir, requested_duration):
     ax.legend()
     fig.tight_layout()
     fig.savefig(output_dir / "separation.png", dpi=150)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    for i, name in enumerate(world.names):
+        ax.plot(t, radial_error[:, i], label=name)
+    ax.axhline(0.1, linestyle="--", label="Radial tolerance")
+    ax.set(xlabel="Simulation time (s)", ylabel="Abs radius error relative to Eq. (14) (m)",
+           title="Paper-aligned radial convergence diagnostics")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_dir / "paper_radial_errors.png", dpi=150)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    for i, name in enumerate(world.names):
+        ax.plot(t, heading_error[:, i], label=name)
+    ax.axhline(0.2, linestyle="--", label="Heading tolerance")
+    ax.set(xlabel="Simulation time (s)", ylabel="Abs heading-to-beacon error from pi/2 (rad)",
+           title="Paper-aligned tangent heading diagnostics")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_dir / "paper_heading_errors.png", dpi=150)
     plt.close(fig)
 
     if any(count < 10 for count in world.commands_received.values()):

@@ -75,6 +75,31 @@ jobs:
           python3 ros2_ws/sim/robustness_sweep.py \
             --duration 35 --output-dir artifacts/robustness
 
+      - name: Validate paper equations and ROS2 control-law parity
+        env:
+          PYTHONPATH: ros2_ws/src/cyclic_pursuit
+          MPLBACKEND: Agg
+        run: |
+          python3 -m pytest -q ros2_ws/sim/test_paper_validation.py
+
+      - name: Evaluate 100 seeded random initial conditions
+        env:
+          PYTHONPATH: ros2_ws/src/cyclic_pursuit
+          MPLBACKEND: Agg
+        run: |
+          python3 ros2_ws/sim/run_paper_study.py \
+            --trials 100 --duration 160 --dt 0.05 \
+            --output-dir artifacts/paper-study \
+            --compare-ros2 artifacts/robustness/random_seed_19/metrics.json
+
+      - name: Upload convergence study and paper-validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-convergence-study
+          path: artifacts/paper-study/
+          if-no-files-found: warn
+
       - name: Upload robustness metrics, CSVs, and plots
         if: always()
         uses: actions/upload-artifact@v4
@@ -92,4 +117,4 @@ jobs:
             ros2_ws/src/cyclic_pursuit/test/test_example_config.py
 
 # Scope: compile, colcon build, ROS 2 pub/sub with synthetic poses, and Python tests.
-# Never starts Crazyswarm2 or drone hardware. Includes seven planar unicycle robustness cases, not drone flight physics.
+# Never starts Crazyswarm2 or drone hardware. Also runs a 100-seed paper-aligned 3-agent comparison; no drone flight physics.
