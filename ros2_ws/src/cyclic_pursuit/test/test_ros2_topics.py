@@ -19,9 +19,12 @@ AGENTS = ('cf231', 'cf123', 'cf232')
 
 def drive(executor, seconds, tick=None):
     deadline = time.monotonic() + seconds
+    next_publish = time.monotonic()
     while time.monotonic() < deadline:
-        if tick is not None:
+        now = time.monotonic()
+        if tick is not None and now >= next_publish:
             tick()
+            next_publish = now + 0.10  # 10 Hz pose updates, not a busy-loop flood.
         executor.spin_once(timeout_sec=0.015)
 
 
