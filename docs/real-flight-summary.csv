@@ -1,0 +1,4 @@
+case,agents,common_pose_window_s,n_pose_topics,n_command_topics,minimum_3d_separation_all_recording_m,minimum_3d_separation_all_airborne_m
+two_success,2,88.06,2,2,0.1639,0.1639
+three_success,3,104.84,3,0,0.4893,0.5864
+four_failed,4,106.45,4,0,0.1051,0.1075

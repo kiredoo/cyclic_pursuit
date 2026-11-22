@@ -53,6 +53,36 @@ hardware-free simulations, not a global stability proof or safe-flight claim.
 Read the full [simulation validation and close-approach report](docs/simulation-validation-results.md)
 for methodology, ablation comparisons, plots and reproducible CI evidence.
 
+## Physical Crazyflie flight experiments (2024–2025)
+
+The control architecture was also deployed on **real Crazyflie drones** with
+ROS 2, Crazyswarm2 and OptiTrack motion capture. The original MURO Lab final
+report describes **successful two- and three-drone circular-pursuit tests**
+and an **unsuccessful four-drone test**. This evidence is separate from
+the 2026 hardware-free simulations.
+
+[![Three Crazyflies: measured trajectory from recorded poses](docs/figures/real-three-crazyflies.svg)](docs/real-flight-results.md)
+
+| Historical test | Outcome reported | Approximate minimum 3-D separation while all agents had z > 0.35 m |
+| --- | --- | ---: |
+| Two Crazyflies | Successful circular pursuit | 0.164 m |
+| Three Crazyflies | Successful circular pursuit | 0.586 m |
+| Four Crazyflies | Unsuccessful, including a reported mid-flight flip | 0.108 m |
+
+The distances are estimates from recorded poses interpolated to a 20 Hz
+timeline, **not guarantees of physical clearance**. The original final
+report used a practical 0.5 m minimum-distance guideline, so even the
+successful two-drone run warrants caution. The four-drone failure's root
+cause was not established.
+
+**[See the complete physical flight-test results, all three trajectory plots,
+and measurement methodology](docs/real-flight-results.md).**
+
+The report and original raw rosbags are not committed here because they
+contain historical contact/attribution information and raw experimental
+recordings. The GitHub figures are simplified, data-derived vector
+renderings of the original recorded pose trajectories.
+
 ## MATLAB analysis
 
 [`analysis/cyclic_pursuit_result_analysis.m`](analysis/cyclic_pursuit_result_analysis.m) contains trajectory, heading, and pairwise-distance plotting. It refers to historical rosbag file names. Large recorded `.db3` files were intentionally not copied into this branch.
