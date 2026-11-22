@@ -1,0 +1,60 @@
+name: ROS 2 Humble cloud build
+
+on:
+  push:
+    branches: [chore/consolidate-cyclic-pursuit]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and inspect ROS 2 package
+    runs-on: ubuntu-22.04
+    container:
+      image: ros:humble-ros-base
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install colcon and Python test tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            python3-colcon-common-extensions python3-numpy python3-yaml python3-pytest
+
+      - name: Compile Python sources
+        run: python3 -m compileall -q ros2_ws/src/cyclic_pursuit
+
+      - name: Build ROS 2 package
+        run: |
+          source /opt/ros/humble/setup.bash
+          cd ros2_ws
+          colcon list --packages-select cyclic_pursuit
+          colcon build --symlink-install --event-handlers console_direct+ --packages-select cyclic_pursuit
+
+      - name: Verify package and executable registration
+        run: |
+          source /opt/ros/humble/setup.bash
+          source ros2_ws/install/setup.bash
+          ros2 pkg prefix cyclic_pursuit
+          ros2 pkg executables cyclic_pursuit
+          test -f ros2_ws/install/cyclic_pursuit/share/cyclic_pursuit/config/cyclic.yaml
+          test -f ros2_ws/install/cyclic_pursuit/share/cyclic_pursuit/launch/launch.py
+          for name in controller landing_client pose_vir; do
+            ros2 pkg executables cyclic_pursuit | grep -Fq "cyclic_pursuit $name"
+          done
+
+      - name: Run non-ROS controller tests
+        env:
+          PYTHONPATH: ros2_ws/src/cyclic_pursuit
+        run: |
+          python3 -m pytest -q \
+            ros2_ws/src/cyclic_pursuit/test/test_control_logic.py \
+            ros2_ws/src/cyclic_pursuit/test/test_example_config.py
+
+# Scope: compile, colcon build, discovery and pure-Python tests only.
+# Does not validate Crazyswarm2 integration or run any hardware/flight commands.
