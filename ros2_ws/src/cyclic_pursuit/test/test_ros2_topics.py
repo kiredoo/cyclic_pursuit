@@ -90,6 +90,15 @@ def test_three_agent_topics_and_missing_pose_safety():
                 publishers[name].publish(pose(name, x, y))
 
         drive(executor, 1.5, publish_all)
+        print('Integration node states:', {
+            node.name: {
+                'own_pose': node.pose,
+                'neighbors': node.other_odom,
+                'last_pose_ns': node.last_pose_ns,
+                'other_pose_times': node.other_pose_time_ns,
+                'commands': len(received[node.name]),
+            } for node in controllers
+        })
         assert all(received[name] for name in AGENTS), (
             f'Missing control command from: {[n for n in AGENTS if not received[n]]}'
         )
