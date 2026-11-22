@@ -53,13 +53,15 @@ The landing client remains `ros2 run cyclic_pursuit landing_client` and reads th
 
 ## Implementation review notes
 
-This review corrects parameter declaration mismatches, active-drone naming, quaternion yaw conversion and shared pose serialization, waiting for all measured poses, configured beacon gains, synthetic pose-message types, and the landing client's configuration path. It does **not** establish that hardware behavior is safe or that full ROS 2 integration succeeds.
+This review corrects parameter declaration mismatches, active-drone naming, quaternion yaw conversion and shared pose serialization, waiting for all measured poses, configured beacon gains, synthetic pose-message types, and the landing client's configuration path. ROS 2 Humble compilation, package discovery, synthetic ROS topic integration,
+and closed-loop kinematic simulations now pass in cloud CI. They do **not**
+establish Crazyswarm2 runtime compatibility or safe physical flight.
 
 Outstanding checks include:
-- A real `colcon build` and ROS 2 integration run in a compatible environment.
+- Validate full Crazyswarm2 runtime and higher-fidelity simulation beyond the passing ROS 2 Humble build and hardware-free integration tests.
 - Verify the Crazyflie `cmd_vel_hover` message conventions and angular-velocity units/sign for the installed Crazyswarm2 revision.
 - Confirm that each `/<cf-name>/pose` is a valid, timely `PoseStamped` with a normalized quaternion and a common coordinate frame.
-- Define stale-pose timeouts and fail-safe behavior before real flight, since the present controller only waits for initial poses.
+- Implement an actual fail-safe stop or landing procedure for lost localization; the current controller withholds commands after stale poses but does not issue a physical stop.
 - Review the controller's experimental landing rate/altitude logic with hardware experts; the original logic is retained.
 - Fix remaining package license placeholders only after confirming the intended license and collaborator approval.
 
@@ -121,8 +123,9 @@ Outputs:
   pairwise distance, late drift and command counts.
 - `trajectories.png`, `radii.png`, `separation.png`: automatically saved plots.
 
-The CI workflow runs the same experiment and uploads all outputs as a
-`closed-loop-simulation` GitHub Actions artifact.
+An earlier baseline workflow run uploaded `closed-loop-simulation` results.
+The current cloud workflow uploads seven ROS 2 scenarios as
+`closed-loop-robustness`, plus the 100-seed `paper-convergence-study`.
 
 **Limits:** This is a 2-D kinematic model with idealized poses and
 zero-order-held commands. It has no physical collision contacts, actuator
@@ -272,3 +275,17 @@ No Crazyswarm2, physical drones, or flight systems are started.
 This remains a planar point-robot model without saturation, finite vehicle
 size, collision response, or communication failures. It is not safe to
 infer drone flight safety from these plots.
+
+
+## Consolidated results and interpretation
+
+For the observed 100-seed convergence results (86% meeting a five-second
+radius-and-heading dwell), the 58% sub-1 m proximity rate, detailed visibility
+analysis, counterfactual experiments, reproducible run links and explicit
+limitations, see the
+[simulation validation and close-approach report](../docs/simulation-validation-results.md).
+
+**Research decision:** Keep the historical controller and all gains unchanged.
+Document the successful circular-formation behavior **and** the limitations;
+do not describe the algorithm as guaranteeing collision avoidance or as ready
+for physical flight.

@@ -33,6 +33,26 @@ The notebook demonstrates agent trajectories, convergence and pairwise-distance 
 
 The [ROS 2 workspace instructions](ros2_ws/README.md) describe the source package, external Crazyswarm2 dependency, and build/launch entry points. This is **historical research code brought into one place for review**, not a verified ready-to-fly release. Inspect the configuration, parameter handling, landing logic, and hardware safety assumptions before executing on real drones.
 
+## Reproducible simulation results
+
+The controller was evaluated with a ROS 2 closed-loop virtual swarm and a
+100-seed, three-agent numerical convergence study. The experiments use the
+existing control law and unchanged gains.
+
+| Observed result | Three-agent simulation |
+| --- | ---: |
+| Met radial and tangent-heading tolerances for five continuous seconds | **86 / 100** |
+| Still within those tolerances at 160 s | **83 / 100** |
+| Approached closer than the configured 1 m threshold | **58 / 100** |
+| Smallest simulated separation | **0.0136 m** |
+
+The interaction term improves severe close-approach outcomes compared with
+removing it, but it **does not guarantee separation**. These are planar,
+hardware-free simulations, not a global stability proof or safe-flight claim.
+
+Read the full [simulation validation and close-approach report](docs/simulation-validation-results.md)
+for methodology, ablation comparisons, plots and reproducible CI evidence.
+
 ## MATLAB analysis
 
 [`analysis/cyclic_pursuit_result_analysis.m`](analysis/cyclic_pursuit_result_analysis.m) contains trajectory, heading, and pairwise-distance plotting. It refers to historical rosbag file names. Large recorded `.db3` files were intentionally not copied into this branch.
