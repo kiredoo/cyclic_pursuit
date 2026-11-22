@@ -1,0 +1,120 @@
+name: ROS 2 Humble cloud build
+
+on:
+  push:
+    branches: [chore/consolidate-cyclic-pursuit]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and inspect ROS 2 package
+    runs-on: ubuntu-22.04
+    container:
+      image: ros:humble-ros-base
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install colcon and Python test tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            python3-colcon-common-extensions python3-numpy python3-yaml python3-pytest
+
+      - name: Compile Python sources
+        run: python3 -m compileall -q ros2_ws/src/cyclic_pursuit
+
+      - name: Build ROS 2 package
+        run: |
+          source /opt/ros/humble/setup.bash
+          cd ros2_ws
+          colcon list --packages-select cyclic_pursuit
+          colcon build --symlink-install --event-handlers console_direct+ --packages-select cyclic_pursuit
+
+      - name: Verify package and executable registration
+        run: |
+          source /opt/ros/humble/setup.bash
+          source ros2_ws/install/setup.bash
+          ros2 pkg prefix cyclic_pursuit
+          ros2 pkg executables cyclic_pursuit
+          test -f ros2_ws/install/cyclic_pursuit/share/cyclic_pursuit/config/cyclic.yaml
+          test -f ros2_ws/install/cyclic_pursuit/share/cyclic_pursuit/launch/launch.py
+          for name in controller landing_client pose_vir; do
+            ros2 pkg executables cyclic_pursuit | grep -Fq "cyclic_pursuit $name"
+          done
+
+      - name: Test ROS 2 topics with synthetic poses (no drones)
+        env:
+          PYTHONPATH: ros2_ws/src/cyclic_pursuit
+          ROS_DOMAIN_ID: '117'
+        run: |
+          source /opt/ros/humble/setup.bash
+          source ros2_ws/install/setup.bash
+          python3 -m pytest -q -s ros2_ws/src/cyclic_pursuit/test/test_ros2_topics.py
+
+      - name: Install plotting dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-matplotlib
+
+      - name: Run seven closed-loop robustness scenarios (no drones)
+        env:
+          PYTHONPATH: ros2_ws/src/cyclic_pursuit
+          ROS_DOMAIN_ID: '118'
+          MPLBACKEND: Agg
+        run: |
+          source /opt/ros/humble/setup.bash
+          source ros2_ws/install/setup.bash
+          python3 -m pytest -q ros2_ws/sim/test_kinematics.py
+          python3 ros2_ws/sim/robustness_sweep.py \
+            --duration 35 --output-dir artifacts/robustness
+
+      - name: Validate paper equations and ROS2 control-law parity
+        env:
+          PYTHONPATH: ros2_ws/src/cyclic_pursuit
+          MPLBACKEND: Agg
+        run: |
+          python3 -m pytest -q ros2_ws/sim/test_paper_validation.py
+
+      - name: Evaluate 100 seeded random initial conditions
+        env:
+          PYTHONPATH: ros2_ws/src/cyclic_pursuit
+          MPLBACKEND: Agg
+        run: |
+          python3 ros2_ws/sim/run_paper_study.py \
+            --trials 100 --duration 160 --dt 0.05 \
+            --output-dir artifacts/paper-study \
+            --compare-ros2 artifacts/robustness/random_seed_19/metrics.json
+
+      - name: Upload convergence study and paper-validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-convergence-study
+          path: artifacts/paper-study/
+          if-no-files-found: warn
+
+      - name: Upload robustness metrics, CSVs, and plots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: closed-loop-robustness
+          path: artifacts/robustness/
+          if-no-files-found: warn
+
+      - name: Run non-ROS controller tests
+        env:
+          PYTHONPATH: ros2_ws/src/cyclic_pursuit
+        run: |
+          python3 -m pytest -q \
+            ros2_ws/src/cyclic_pursuit/test/test_control_logic.py \
+            ros2_ws/src/cyclic_pursuit/test/test_example_config.py
+
+# Scope: compile, colcon build, ROS 2 pub/sub with synthetic poses, and Python tests.
+# Never starts Crazyswarm2 or drone hardware. Also runs a 100-seed paper-aligned 3-agent comparison; no drone flight physics.

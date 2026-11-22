@@ -1,8 +1,28 @@
-*.npy
-cf_workspace/build/
-cf_workspace/cache/
-cf_workspace/install/
-cf_workspace/log/
-cyclic_persuit/__pycache__/
-cache/
+# ROS 2 / colcon-generated artifacts
+**/build/
+**/install/
+**/log/
+**/.colcon/
+
+# Python caches and virtual environments
+**/__pycache__/
+*.py[cod]
+**/.ipynb_checkpoints/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Local editor / OS artifacts
+.vscode/
+.idea/
+.DS_Store
+
+# Temporary outputs and large recordings
+**/rosbag/
 **/rosbag_data/
+**/rosbag2_*/
+*.db3
+*.mcap
+*.npy
+*.mp4
