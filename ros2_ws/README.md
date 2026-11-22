@@ -129,3 +129,44 @@ zero-order-held commands. It has no physical collision contacts, actuator
 limits, rotor aerodynamics, localization noise, radio delay or fail-safe
 behavior. A small radial spread is not by itself a proof of safety or
 asymptotic convergence. No physical takeoff API is invoked.
+
+## Robustness sweep: initial formations, noisy poses, and delayed observations
+
+Run `python3 ros2_ws/sim/robustness_sweep.py --duration 35` in ROS 2 Humble
+with the same dependencies used by the cloud workflow. The sweep runs
+**seven independent closed-loop experiments**, retaining the historical
+controller and configuration gains unchanged:
+
+1. Baseline asymmetric configuration.
+2. Compact configuration, closer to the reference origin.
+3. Dispersed configuration, with some neighbors initially outside sensing range.
+4. Randomized initial positions and headings (seed 19).
+5. Baseline with independent Gaussian position noise (5 cm standard deviation
+   in x/y) and yaw noise (2 degrees standard deviation).
+6. Baseline with 200 ms delay before each sampled pose reaches its controller.
+7. Randomized initial conditions with both measurement noise and 200 ms delay.
+
+Only *observed poses* are noisy. A FIFO delays pose delivery and preserves the
+original sample timestamp. The controller currently judges freshness using
+arrival time, not the pose timestamp, so this is not a full validation of its
+stale-measurement safety logic. Commands themselves are not delayed.
+
+The GitHub Actions artifact `closed-loop-robustness` contains
+`summary.csv`, `summary.json`, `summary.md`, and a directory for each
+scenario containing `states.csv`, `metrics.json`, `trajectories.png`,
+`radii.png`, and `separation.png`.
+
+The summary reports true minimum pairwise separation, final radial spread,
+and late mean-radius variation. Thresholds of 0.15 m for radial spread
+and 5-second radius change are **diagnostic**, not proofs of stability.
+The distance threshold `ds=1.0 m` is flagged if crossed, but there
+are no physical collision contacts in the model.
+
+CI fails on an experiment execution failure. It does *not* discard a
+numerically valid run with poor geometric results. Such outcomes must be
+interpreted rather than silently retuned. ROS 2 scheduling can cause
+small run-to-run differences despite seeded noise.
+
+This is a planar kinematic plant, not a rigid-body flight simulator:
+rotor forces, actuator bounds, correlated sensing failures, physical
+radio networks, collision physics, and fail-safe landing remain untested.

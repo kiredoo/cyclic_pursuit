@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: ros:humble-ros-base
+    timeout-minutes: 20
     defaults:
       run:
         shell: bash
@@ -62,7 +63,7 @@ jobs:
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-matplotlib
 
-      - name: Run three-agent closed-loop ROS 2 simulation
+      - name: Run seven closed-loop robustness scenarios (no drones)
         env:
           PYTHONPATH: ros2_ws/src/cyclic_pursuit
           ROS_DOMAIN_ID: '118'
@@ -71,15 +72,15 @@ jobs:
           source /opt/ros/humble/setup.bash
           source ros2_ws/install/setup.bash
           python3 -m pytest -q ros2_ws/sim/test_kinematics.py
-          python3 ros2_ws/sim/closed_loop_ros2.py \
-            --duration 50 --dt 0.05 --output-dir artifacts/closed-loop
+          python3 ros2_ws/sim/robustness_sweep.py \
+            --duration 35 --output-dir artifacts/robustness
 
-      - name: Upload trajectories and performance metrics
+      - name: Upload robustness metrics, CSVs, and plots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: closed-loop-simulation
-          path: artifacts/closed-loop/
+          name: closed-loop-robustness
+          path: artifacts/robustness/
           if-no-files-found: warn
 
       - name: Run non-ROS controller tests
@@ -91,4 +92,4 @@ jobs:
             ros2_ws/src/cyclic_pursuit/test/test_example_config.py
 
 # Scope: compile, colcon build, ROS 2 pub/sub with synthetic poses, and Python tests.
-# Never starts Crazyswarm2 or drone hardware. Includes planar unicycle closed-loop dynamics, not drone flight physics.
+# Never starts Crazyswarm2 or drone hardware. Includes seven planar unicycle robustness cases, not drone flight physics.
