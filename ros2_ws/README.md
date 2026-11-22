@@ -84,45 +84,45 @@ issues are addressed.
 
 ## Closed-loop lightweight simulation (ROS 2, no physical drones)
 
-The \`ros2_ws/sim/closed_loop_ros2.py\` script runs the **actual three ROS 2
-\`Crazyflie\` controller nodes** against a separate virtual plant node.
-The plant publishes each robot's \`PoseStamped\` and integrates each received
-\`Twist\` using a planar unicycle model:
+The `ros2_ws/sim/closed_loop_ros2.py` script runs the **actual three ROS 2
+`Crazyflie` controller nodes** against a separate virtual plant node.
+The plant publishes each robot's `PoseStamped` and integrates each received
+`Twist` using a planar unicycle model:
 
-\`\`\`text
+```text
 x_dot = v cos(theta), y_dot = v sin(theta), theta_dot = omega
-\`\`\`
+```
 
-The controller's historical \`angular.z\` convention is *negative degrees per
-second*. The virtual plant converts \`omega = -radians(angular.z)\`, preserving
+The controller's historical `angular.z` convention is *negative degrees per
+second*. The virtual plant converts `omega = -radians(angular.z)`, preserving
 the existing controller sign and units. **This convention is not confirmed
-against a physical Crazyswarm2 driver.** \`linear.z\` is treated as an
+against a physical Crazyswarm2 driver.** `linear.z` is treated as an
 altitude-setpoint field and is **not** used in this 2-D model.
 
-The simulation uses the parameter values from \`config/cyclic.yaml\` and
+The simulation uses the parameter values from `config/cyclic.yaml` and
 slightly asymmetric initial positions/headings. Every controller receives
 all other agents' poses through the normal shared ROS topic, then changes
-its own virtual motion through ROS \`Twist\` commands.
+its own virtual motion through ROS `Twist` commands.
 
 To reproduce in a ROS 2 Humble environment (with Python NumPy, PyYAML,
 Matplotlib and pytest installed), from the repository root:
 
-\`\`\`bash
+```bash
 source /opt/ros/humble/setup.bash
 export PYTHONPATH=ros2_ws/src/cyclic_pursuit
 python3 ros2_ws/sim/closed_loop_ros2.py \
   --duration 50 --dt 0.05 --output-dir artifacts/closed-loop
-\`\`\`
+```
 
 Outputs:
 
-- \`states.csv\`: all robot states and applied unicycle velocities, at every time step.
-- \`metrics.json\`: initial/final mean radius, final radial spread, minimum
+- `states.csv`: all robot states and applied unicycle velocities, at every time step.
+- `metrics.json`: initial/final mean radius, final radial spread, minimum
   pairwise distance, late drift and command counts.
-- \`trajectories.png\`, \`radii.png\`, \`separation.png\`: automatically saved plots.
+- `trajectories.png`, `radii.png`, `separation.png`: automatically saved plots.
 
 The CI workflow runs the same experiment and uploads all outputs as a
-\`closed-loop-simulation\` GitHub Actions artifact.
+`closed-loop-simulation` GitHub Actions artifact.
 
 **Limits:** This is a 2-D kinematic model with idealized poses and
 zero-order-held commands. It has no physical collision contacts, actuator

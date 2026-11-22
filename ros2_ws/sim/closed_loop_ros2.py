@@ -61,7 +61,7 @@ class VirtualSwarm(Node):
         self.names = names
         self.dt = dt
         self.states = {name: tuple(INITIAL[i]) for i, name in enumerate(names)}
-        self.publishers = {
+        self.pose_publishers = {
             name: self.create_publisher(PoseStamped, f"/{name}/pose", 10)
             for name in names
         }
@@ -69,7 +69,7 @@ class VirtualSwarm(Node):
         self.command_at = {name: None for name in names}
         self.commands_received = {name: 0 for name in names}
         self.max_command_deg_s = {name: 0.0 for name in names}
-        self.subscriptions = [
+        self.command_subscriptions = [
             self.create_subscription(
                 Twist, f"/{name}/cmd_vel_hover",
                 lambda msg, label=name: self.command_callback(label, msg), 10,
@@ -102,7 +102,7 @@ class VirtualSwarm(Node):
             msg.pose.position.y = y
             msg.pose.orientation.z = math.sin(theta / 2.0)
             msg.pose.orientation.w = math.cos(theta / 2.0)
-            self.publishers[name].publish(msg)
+            self.pose_publishers[name].publish(msg)
 
     def begin(self):
         self.rows.clear()

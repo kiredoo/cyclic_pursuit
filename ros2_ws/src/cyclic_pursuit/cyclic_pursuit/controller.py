@@ -160,7 +160,7 @@ class Crazyflie(Node):
     # Reset flag after using the data
         # self.odom_ready = False
         # self.get_logger().info("Controlling")
-        self.get_logger().info(f"Current other_odom data: {self.other_odom}")
+        self.get_logger().debug(f"Current other_odom data: {self.other_odom}")
 
         cfs_odom = self.pose
         msg = []
@@ -189,7 +189,7 @@ class Crazyflie(Node):
             gain=self.k, psi_limit=self.psi,
             shape=self.c, target_radius=self.rho_o,
         ) + utj
-        self.get_logger().info(str(theta_dot*180/np.pi))    
+        self.get_logger().debug(str(theta_dot*180/np.pi))    
         self.cmd_msg.angular.z = -theta_dot*180/np.pi # Need theta dot in deg
         # self.cmd_msg.linear.x = 0.3
         # self.cmd_msg.linear.z = 0.5        # print(f"Controller: publish{theta_dot}")
