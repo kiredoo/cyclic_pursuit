@@ -227,3 +227,48 @@ discontinuity is stated at `rho = 0`. The study deliberately preserves
 the implemented ROS 2 behavior instead of silently modifying the control
 law. The simulator's command sign/unit conversion must still be verified
 against any future Crazyflie driver.
+
+
+## Why do some agents get closer than 1 m? Diagnostic investigation
+
+Run the **hardware-free** diagnostic ablation script:
+
+```bash
+export PYTHONPATH=ros2_ws/src/cyclic_pursuit
+python3 -m pytest -q ros2_ws/sim/test_close_approaches.py
+python3 ros2_ws/sim/diagnose_close_approaches.py \
+  --trials 100 --duration 35 --dt 0.05 --seed 23 \
+  --output-dir artifacts/close-approach-diagnosis
+```
+
+The `close-approach-diagnosis` artifact from the separate fast CI workflow
+contains `summary.json`, `diagnosis.md`, `all_cases.csv`, the detailed
+seed-23 pair trace, and distance/control-component plots.
+
+This script uses the unchanged configured gains and **three distinct
+counterfactuals** over the same 100 seeded initial conditions:
+- Original limited forward visibility and omnidirectional 1 m proximity region.
+- Full 360-degree visibility to the same maximum distance of 4 m, with the
+  exact same steering law. This tests the role of late detection.
+- Beacon-only steering, ignoring neighbors. This isolates what the
+  inter-agent component changes.
+
+Neither counterfactual should be considered a safe proposed controller.
+They can change equilibrium behavior and lack physical safety guarantees.
+
+The paper's inter-agent term is `kv * g(distance; cv,d0) * beta`, where
+`g(distance)` is negative when `distance < d0`. For `cv = 2`,
+`g(0) = -log(2)`, a finite value. Crucially, the steering term tends to
+zero as the neighbor bearing `beta` tends to zero, even when two robots
+are on a head-on trajectory. Both robots maintain constant forward speed.
+The `ds` proximity region ensures **detection**, not guaranteed minimum
+separation or a physical safety barrier.
+
+The diagnostic reproduces seed 23: a near-head-on approach with both robots
+within forward field of view long before the 1 m threshold is crossed.
+Plots distinguish actual repulsive steering from the beacon steering term.
+No Crazyswarm2, physical drones, or flight systems are started.
+
+This remains a planar point-robot model without saturation, finite vehicle
+size, collision response, or communication failures. It is not safe to
+infer drone flight safety from these plots.

@@ -1,0 +1,46 @@
+name: Close-approach diagnosis (fast model)
+
+on:
+  push:
+    branches: [chore/consolidate-cyclic-pursuit]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pure numerical dependencies
+        run: python -m pip install numpy PyYAML matplotlib pytest
+
+      - name: Verify diagnostic math against historical controller
+        env:
+          PYTHONPATH: ros2_ws/src/cyclic_pursuit
+          MPLBACKEND: Agg
+        run: python -m pytest -q ros2_ws/sim/test_close_approaches.py
+
+      - name: Quantify visibility and steering limitations over 100 seeds
+        env:
+          PYTHONPATH: ros2_ws/src/cyclic_pursuit
+          MPLBACKEND: Agg
+        run: |
+          python ros2_ws/sim/diagnose_close_approaches.py \
+            --trials 100 --duration 35 --dt 0.05 --seed 23 \
+            --output-dir artifacts/close-approach-diagnosis
+
+      - name: Upload diagnostic report, traces and plots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: close-approach-diagnosis
+          path: artifacts/close-approach-diagnosis/
+          if-no-files-found: warn
