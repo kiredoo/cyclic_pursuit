@@ -1,20 +1,15 @@
 from std_srvs.srv import Trigger
 import rclpy
-import signal
-import time
+import os
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
-from geometry_msgs.msg import Pose
 from geometry_msgs.msg import Twist
-import rclpy.subscription
-from std_msgs.msg import Float64
 import numpy as np
 from cyclic_pursuit.functions.utils import *
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 from rclpy.parameter import ParameterValue, ParameterType
 from crazyflie_py import Crazyswarm
-from rclpy.signals import SignalHandlerOptions
 
 qos_profile = QoSProfile(depth=20)
 qos_profile.reliability = ReliabilityPolicy.RELIABLE
@@ -23,15 +18,6 @@ qos_profile.durability = DurabilityPolicy.VOLATILE
 
 
 
-global dt
-global radius
-global control_signal
-global control_hold
-global control_rate
-global theta_dot_save
-global gamma_save
-global alpha_v
-global dl
 global ds 
 global av
 global bd_save
@@ -40,10 +26,6 @@ global pij_save
 global vis_zone_vec2
 global utj_vec
 global gamma_ij_glob
-
-
-def yaw_from_quaternion(quaternion):
-    return 2*np.arctan2(quaternion.z, quaternion.w)
 
 
 class Crazyflie(Node):
@@ -68,9 +50,9 @@ class Crazyflie(Node):
         self.n = n
         self.name = name
         self.id = id
-        self.pose = [0.0,0.0,0.0]
+        self.pose = None  # No control command until the first measured pose arrives
         self.other_cfs_names = cfs_names
-        self.other_odom = {cf_name: [0.0,0.0,0.0] for cf_name in self.other_cfs_names if cf_name != name}
+        self.other_odom = {cf_name: None for cf_name in self.other_cfs_names if cf_name != name}
         self.pose_subscription = self.create_subscription(
             PoseStamped,
             f'/{self.name}/pose',
@@ -79,7 +61,9 @@ class Crazyflie(Node):
         )
         # self.pose_subscrition()
 
-        self.create_subscription(PoseStamped,'/all_crazyflies/odom',self.odom_callback,qos_profile = qos_profile)
+        self.odom_subscription = self.create_subscription(
+            PoseStamped, '/all_crazyflies/odom', self.odom_callback, qos_profile
+        )
         self.landing_service = self.create_service(
         Trigger,
         f'/{self.name}/trigger_landing',
@@ -92,7 +76,7 @@ class Crazyflie(Node):
         self.cmd_msg.linear.x = self.v
         self.cmd_msg.linear.z = self.height
 
-        timer_period = 0.025  # seconds (20 Hz)
+        timer_period = 0.025  # seconds (40 Hz)
         self.timer = self.create_timer(timer_period, self.controller)
         # self.odom_ready = False
         self.get_logger().info(
@@ -118,13 +102,13 @@ class Crazyflie(Node):
 
         self.pose = [msg.pose.position.x,msg.pose.position.y,yaw]
         # self.get_logger().infoself.landing_timer = None(f'Pose_sub for cf: {self.id}: {str(self.pose)}')
-        self.publish_odom()
-    
-    def publish_odom(self):
+        self.publish_odom(msg)
+
+    def publish_odom(self, measured_pose):
+        # Preserve the actual quaternion. Writing a yaw angle to orientation.z
+        # would create an invalid quaternion on the shared odometry topic.
         pose_msg = PoseStamped()
-        pose_msg.pose.position.x = self.pose[0]
-        pose_msg.pose.position.y = self.pose[1]
-        pose_msg.pose.orientation.z = self.pose[2]
+        pose_msg.pose = measured_pose.pose
         pose_msg.header.frame_id = self.name
         pose_msg.header.stamp = self.get_clock().now().to_msg()
         self.odom_publish.publish(pose_msg)
@@ -133,12 +117,19 @@ class Crazyflie(Node):
         sender_name = msg.header.frame_id
         # self.get_logger().info(f'Msg: {msg.header.frame_id} and other_odom.keys() {self.other_odom.keys()}')
         if sender_name in self.other_odom.keys():
-            self.other_odom[sender_name] = [msg.pose.position.x, msg.pose.position.y, msg.pose.orientation.z]
+            self.other_odom[sender_name] = [
+                msg.pose.position.x,
+                msg.pose.position.y,
+                yaw_from_quaternion(msg.pose.orientation),
+            ]
             # self.get_logger().info(f'odom callback {self.other_odom}')
             self.odom_ready = True
     
 
     def controller(self):
+        # Do not steer using fabricated zero poses while neighbors are absent.
+        if self.pose is None or any(pose is None for pose in self.other_odom.values()):
+            return
         # if not self.odom_ready:
         #     self.get_logger().warn("Waiting for odom data.")
         #     return  # Skip this iteration if data is not ready
@@ -170,7 +161,11 @@ class Crazyflie(Node):
         # utj = 0
         utj = u_t_j(pij_vec,Bd_vec,self.cj,self.d_0,self.kj,visible)
         # utj_save.append(utj)
-        theta_dot = u_t(cfs_odom[0:2],xb,cfs_odom[2]) + utj
+        theta_dot = u_t(
+            cfs_odom[0:2], xb, cfs_odom[2],
+            gain=self.k, psi_limit=self.psi,
+            shape=self.c, target_radius=self.rho_o,
+        ) + utj
         self.get_logger().info(str(theta_dot*180/np.pi))    
         self.cmd_msg.angular.z = -theta_dot*180/np.pi # Need theta dot in deg
         # self.cmd_msg.linear.x = 0.3
@@ -214,8 +209,10 @@ class pose_subscriber(Node):
         self.declare_parameters(
             namespace='',
             parameters=[
-                ('cfs_names', ParameterValue(type=ParameterType.PARAMETER_STRING_ARRAY)),
-                ('cfs_id', ParameterValue(type=ParameterType.PARAMETER_STRING_ARRAY)),
+                ('cfs_active_names', ParameterValue(type=ParameterType.PARAMETER_STRING_ARRAY)),
+                ('cfs_active_id', ParameterValue(type=ParameterType.PARAMETER_STRING_ARRAY)),
+                ('cfs_inactive_names', ParameterValue(type=ParameterType.PARAMETER_STRING_ARRAY)),
+                ('cfs_inactive_id', ParameterValue(type=ParameterType.PARAMETER_STRING_ARRAY)),
                 ('v', 0.0),
                 ('av', 0.0),
                 ('ds', 0.0),
@@ -248,12 +245,13 @@ class pose_subscriber(Node):
         self.rho_o = self.get_parameter('rho_o').get_parameter_value().double_value
         self.n = self.get_parameter('n').get_parameter_value().integer_value
         self.height = self.get_parameter('height').get_parameter_value().double_value
+        validate_swarm_configuration(self.cfs_active_names, self.cfs_active_id, self.n)
         # self.cfs_names = ['cf231','cf123','cf232']
         # self.cfs_id = ['231','123','232']
 
         self.cfs = {}
         for cf_name,id in zip(self.cfs_active_names,self.cfs_active_id):
-            self.cfs[cf_name] = Crazyflie(cf_name,id,self.cfs_names,self.v,self.av,self.ds,
+            self.cfs[cf_name] = Crazyflie(cf_name,id,self.cfs_active_names,self.v,self.av,self.ds,
                                           self.dl,self.psi,self.d_0,self.c,self.cj,self.k,
                                           self.kj,self.rho_o,self.n,self.height)
             # rclpy.spin(self.cfs[cf_name])
@@ -277,17 +275,21 @@ class pose_subscriber(Node):
     
 
 def main(args=None):
-    # rclpy.init(args=args)
+    # This entry point commands physical takeoff. Require explicit opt-in.
+    if os.environ.get('CYCLIC_PURSUIT_ENABLE_FLIGHT') != '1':
+        raise RuntimeError(
+            'Automatic takeoff disabled. Set CYCLIC_PURSUIT_ENABLE_FLIGHT=1 '
+            'only after validating the full ROS 2 setup in simulation.'
+        )
     TAKEOFF_DURATION = 2.5
     swarm = Crazyswarm()
     timeHelper = swarm.timeHelper
     allcfs = swarm.allcfs
 
+    posesubscriber = pose_subscriber()  # Validate configuration before takeoff.
+
     allcfs.takeoff(targetHeight=0.5, duration=TAKEOFF_DURATION)
     timeHelper.sleep(5)
-
-
-    posesubscriber = pose_subscriber()
 
     # Using MultiThreadedExecutor
     executor = MultiThreadedExecutor()
@@ -306,6 +308,7 @@ def main(args=None):
     finally:
         for node in posesubscriber.getnodes():
             node.destroy_node()
+        posesubscriber.destroy_node()
         rclpy.shutdown()
       
 

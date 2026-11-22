@@ -1,4 +1,21 @@
 import numpy as np
+
+
+def yaw_from_quaternion(q):
+    """Return planar yaw in radians from a geometry_msgs Quaternion-like object."""
+    return float(np.arctan2(
+        2.0 * (q.w * q.z + q.x * q.y),
+        1.0 - 2.0 * (q.y * q.y + q.z * q.z),
+    ))
+
+
+def validate_swarm_configuration(names, ids, n):
+    """Reject mismatched or ambiguous active Crazyflie configurations."""
+    if not names or len(names) != n or len(ids) != n:
+        raise ValueError("n, cfs_active_names and cfs_active_id must have equal nonzero lengths")
+    if len(set(names)) != n or len(set(ids)) != n:
+        raise ValueError("Active Crazyflie names and IDs must be unique")
+
 global psi 
 global rho_o
 global k 
@@ -136,7 +153,7 @@ def alpha_d(gamma,psi):
         print("Error in gamma value" + gamma)
 
 
-def u_t(xv,xb,heading):
+def u_t(xv,xb,heading, gain=k, psi_limit=psi, shape=c, target_radius=rho_o):
     
     gamma = get_angle(xb[0] - xv[0],xb[1] - xv[1]) - heading
     while (gamma>2*np.pi):
@@ -144,11 +161,11 @@ def u_t(xv,xb,heading):
     while (gamma<0):
         gamma = gamma + 2*np.pi
         #print(np.rad2deg(gamma))
-    alpha = alpha_d(gamma,psi)
+    alpha = alpha_d(gamma, psi_limit)
 
-    g = g_function(xb,xv,c,rho_o)
-        
-    u = k*g*alpha
+    g = g_function(xb, xv, shape, target_radius)
+
+    u = gain * g * alpha
     if dist(xv,xb) < 0.1:
         u = 0
     # control_signal.append(u)
@@ -189,15 +206,3 @@ def adjust_angle(x,n):
         while (x[(3*i)+2]<0):
             x[(3*i)+2] = x[(3*i)+2] + 2*np.pi
     return x
-
-
-def get_angle(dx,dy):
-    theta = np.arctan2(dy,dx)
-    if(theta<0):
-        theta = theta + 2*np.pi
-    return theta
-
-
-
-               
-    

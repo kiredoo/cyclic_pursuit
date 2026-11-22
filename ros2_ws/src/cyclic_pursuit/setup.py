@@ -19,7 +19,7 @@ setup(
     zip_safe=True,
     maintainer='kiredoo',
     maintainer_email='chl146@ucsd.edu',
-    description='TODO: Package description',
+    description='Experimental multi-Crazyflie cyclic pursuit controller for ROS 2',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
