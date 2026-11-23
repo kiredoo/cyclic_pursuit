@@ -4,14 +4,15 @@
 **Platform:** Crazyflie drones · ROS 2 · Crazyswarm2 · OptiTrack motion capture.  
 **Status:** Archive of experimental evidence, **not** a verified flight-ready controller.
 
-The final project report documents implementation of the circular-pursuit
-controller described by Ceccarelli *et al.* and physical tests with two,
-three, and four Crazyflies. Circular pursuit was **successfully demonstrated
-with two and three physical drones**. A four-drone experiment did **not**
-succeed: the report describes an unexpected mid-flight flip and deviations
-from simulated trajectories. The root cause was **not established**. The
-classification of success or failure is taken from the historical report
-and the recording labels, not independently inferred from pose curves.
+In my May 2025 final report, I documented my implementation of the
+multi-agent cyclic pursuit controller based on Ceccarelli *et al.* and
+my physical tests with two, three, and four Crazyflies. I **successfully
+demonstrated circular pursuit with two and three physical drones**.
+The four-drone test was **unsuccessful**: I observed an unexpected
+mid-flight flip and substantial deviations from the simulated trajectories.
+I was unable to isolate the root cause. These success/failure labels
+reflect my experiment report and original recording labels, not conclusions
+inferred solely from the plotted paths.
 
 These flights occurred **before** the 2026 cloud-based ROS 2 simulation
 and 100-seed numerical evaluation. They demonstrate real hardware integration
@@ -78,8 +79,8 @@ analysis convention, not a confirmed takeoff/landing classification. Full
 recordings may include initialization, takeoff, landing, or tracking artifacts.
 Interpolation and timestamp alignment also introduce uncertainty.
 
-The historical report used **0.5 m** as a practical minimum separation
-rule of thumb, rather than establishing a universal collision threshold.
+In my original report, I used **0.5 m** as a practical minimum-separation
+guideline, not as a universal collision threshold.
 The low estimated separation in the otherwise successful two-drone test
 shows why successful orbiting and safe clearance are **different claims**.
 These values **do not establish that any physical collision occurred**.
@@ -89,19 +90,19 @@ A compact machine-readable copy of the table is available at
 
 ## Experimental architecture and contributions
 
-The hardware experiment used separate Python/ROS 2 controller nodes, the
-Crazyswarm2 stack, Crazyradio communication, and OptiTrack position
-measurements. The author's final report describes personal contributions
-including implementing the missing multi-agent interaction portion of an
-existing beacon-controller script, packaging the algorithm for ROS 2,
-building simulation and MATLAB-analysis tools, selecting parameters, and
-performing laboratory tests with collaborators.
+I built the ROS 2 cyclic pursuit package so that each Crazyflie could
+run its controller as a separate node, using Crazyswarm2, Crazyradio
+communication, and OptiTrack pose measurements. My work included
+implementing the missing inter-agent interaction term, developing and
+testing the Python simulation, writing MATLAB scripts for trajectory and
+distance analysis, tuning the gains for our test area, and conducting
+the physical flight experiments.
 
-The initial beacon term and early simulation originated with a previous
-collaborator. The hardware setup and OptiTrack integration also benefited
-from support by other MURO Lab members. The project should therefore be
-described as a **collaborative research effort**, with individual
-contributions distinguished where possible.
+I built on **Sudhanshu Shankar's** earlier beacon-controller script
+and basic simulator. **Scott Addams and Arnau Marzabal** helped with
+the Crazyflie hardware and OptiTrack setup. This was a collaborative
+MURO Lab project, and I want to credit that support while making my own
+technical contributions clear.
 
 The report describes the following experiment-specific limitations:
 
@@ -134,18 +135,16 @@ experimental distances as matched trials**.
 
 ## Provenance and publication choices
 
-The figures in this page were regenerated from user-supplied laboratory
-recordings labeled `2_crazyflie_success.db3`,
-`3_crazyflie_success.db3`, and `4_crazyflie_fail.db3`. The original
-final project report (May 2025), the original MATLAB screenshots, and
-raw bags were consulted to prepare this documentation.
+I prepared this documentation from **my May 2025 final project report**,
+my original MATLAB trajectory plots, and the ROS 2 flight recordings I
+collected: `2_crazyflie_success.db3`,
+`3_crazyflie_success.db3`, and `4_crazyflie_fail.db3`.
 
-The raw `.db3` files and unredacted PDF **are not included** in this
-public repository update. They were intentionally kept separate for
-privacy, attribution, data-management, and redistribution review. The
-SVG plots are derived visualizations; they are **not** the original
-recorded data. The original experimental report remains the source
-for the team's qualitative success/failure statements and observations.
+I have not published the raw `.db3` files or the unredacted PDF in this
+repository, pending privacy, attribution, and data-sharing review.
+The SVG plots on this page are simplified reconstructions from those
+recordings, **not the original data or MATLAB figures**. My final report
+remains the primary record of the experiment outcomes and observations.
 
 **Limitations:** The experiments do not demonstrate stable four- or
 five-drone operation, guaranteed collision avoidance, global theoretical

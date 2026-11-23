@@ -55,11 +55,12 @@ for methodology, ablation comparisons, plots and reproducible CI evidence.
 
 ## Physical Crazyflie flight experiments (2024–2025)
 
-The control architecture was also deployed on **real Crazyflie drones** with
-ROS 2, Crazyswarm2 and OptiTrack motion capture. The original MURO Lab final
-report describes **successful two- and three-drone circular-pursuit tests**
-and an **unsuccessful four-drone test**. This evidence is separate from
-the 2026 hardware-free simulations.
+During my MURO Lab research at UC San Diego, I deployed the cyclic pursuit
+controller on **physical Crazyflie drones**, using ROS 2, Crazyswarm2, and
+OptiTrack motion capture. In my May 2025 final report, I documented
+**successful two- and three-drone circular-pursuit experiments** and an
+**unsuccessful four-drone experiment**. Those hardware results are distinct
+from the later hardware-free simulation study.
 
 [![Three Crazyflies: measured trajectory from recorded poses](docs/figures/real-three-crazyflies.svg)](docs/real-flight-results.md)
 
@@ -70,18 +71,18 @@ the 2026 hardware-free simulations.
 | Four Crazyflies | Unsuccessful, including a reported mid-flight flip | 0.108 m |
 
 The distances are estimates from recorded poses interpolated to a 20 Hz
-timeline, **not guarantees of physical clearance**. The original final
-report used a practical 0.5 m minimum-distance guideline, so even the
-successful two-drone run warrants caution. The four-drone failure's root
-cause was not established.
+timeline, **not guarantees of physical clearance**. In my final report,
+I used a practical 0.5 m minimum-distance guideline, so even the successful
+two-drone run warrants caution. I did not establish the root cause of the
+four-drone failure.
 
 **[See the complete physical flight-test results, all three trajectory plots,
 and measurement methodology](docs/real-flight-results.md).**
 
-The report and original raw rosbags are not committed here because they
-contain historical contact/attribution information and raw experimental
-recordings. The GitHub figures are simplified, data-derived vector
-renderings of the original recorded pose trajectories.
+I have kept my unredacted final report and the raw rosbags out of the
+public repository pending a privacy and sharing review. The GitHub
+figures are simplified vector renderings derived from my recorded
+flight trajectories.
 
 ## MATLAB analysis
 
@@ -109,9 +110,24 @@ The package version remains `0.0.0`; the **license is not yet selected**,
 so don't assume that the entire repository can be freely redistributed
 or incorporated into other projects.
 
-## Project history and attribution
+## My contributions and collaborators
 
-This consolidation preserves the original simulation notebooks and the custom ROS 2 / MATLAB source from earlier repository branches. The original main-branch README credits **Sudhanshu Shankar and Isaac Lin**. The ROS 2 package remains in its original experimental state, and any upstream Crazyswarm2 components retain their own licenses in the upstream project.
+I developed this project at **UC San Diego's MURO Lab from September 2024 to
+May 2025**. I built on an initial beacon-controller script and basic simulator
+developed by **Sudhanshu Shankar**. I implemented the missing multi-agent
+interaction logic, packaged the controller as a ROS 2 application, developed
+simulation and MATLAB data-analysis tools, tuned parameters, and conducted
+physical Crazyflie experiments.
+
+**Scott Addams and Arnau Marzabal** helped me with Crazyflie hardware and
+OptiTrack integration. I credit their contributions and Sudhanshu's earlier
+work while distinguishing them from my own controller, software-integration,
+and experimental work.
+
+I have preserved the research notebooks and ROS 2/MATLAB code from earlier
+repository branches. The controller remains an experimental research
+prototype, not a verified flight-ready release. Crazyswarm2 is an upstream
+dependency with its own licensing.
 
 ## Reference
 
