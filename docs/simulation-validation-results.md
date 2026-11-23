@@ -6,11 +6,12 @@
 
 ## Summary
 
-The historical cyclic-pursuit controller is **retained as implemented**, without
-retuning its gains or changing its visibility, repulsion, or forward-speed
-policy. Tests on planar unicycle agents indicate that it often approaches the
-paper's predicted circular formation, but **minimum separation is not
-guaranteed** for the tested initial-condition distribution.
+I kept the cyclic-pursuit controller **as implemented**, without retuning
+its gains or changing its visibility, repulsion, or forward-speed policy.
+I then evaluated it with planar unicycle simulations. The results show
+that the robots often approach the paper's predicted circular formation,
+but **minimum separation is not guaranteed** for the tested distribution
+of initial conditions.
 
 In 100 deterministic three-agent simulations lasting 160 simulated seconds:
 

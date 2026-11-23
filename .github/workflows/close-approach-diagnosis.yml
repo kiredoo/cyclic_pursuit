@@ -2,8 +2,10 @@ name: Close-approach diagnosis (fast model)
 
 on:
   push:
-    branches: [chore/consolidate-cyclic-pursuit]
+    branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

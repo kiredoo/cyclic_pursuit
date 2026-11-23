@@ -2,8 +2,10 @@ name: Pure controller tests
 
 on:
   push:
-    branches: [chore/consolidate-cyclic-pursuit]
+    branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   controller-math:
