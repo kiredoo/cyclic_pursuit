@@ -3,7 +3,7 @@
 <package format="3">
   <name>cyclic_pursuit</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Experimental decentralized cyclic pursuit controller for Crazyflie robots in ROS 2; historical research prototype, not validated for flight.</description>
   <maintainer email="chl146@ucsd.edu">kiredoo</maintainer>
   <license>TODO: License declaration</license>
 

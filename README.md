@@ -91,6 +91,24 @@ renderings of the original recorded pose trajectories.
 
 See the [Crazyradio USB / WSL2 guide](docs/wsl2-tutorial.md). No internal Wi-Fi passwords or hardware credentials are included in this consolidated documentation.
 
+## Maintenance and reproducibility
+
+The three GitHub Actions workflows run on pull requests targeting `main`
+and on pushes to `main`. They can also be started manually from the
+**Actions** tab. The checks validate the mathematical controller, ROS 2
+Humble build and topic integration, and synthetic closed-loop experiments;
+they do **not** certify flight safety.
+
+Generated simulation data is written under `artifacts/` and excluded from
+Git. CI uploads reports and plots as run artifacts. The original ROS 2
+controller code and historical experimental source remain in place.
+
+See [repository maintenance notes](docs/repository-maintenance.md) for the
+branch-archival plan, documentation layout and unresolved publishing decisions.
+The package version remains `0.0.0`; the **license is not yet selected**,
+so don't assume that the entire repository can be freely redistributed
+or incorporated into other projects.
+
 ## Project history and attribution
 
 This consolidation preserves the original simulation notebooks and the custom ROS 2 / MATLAB source from earlier repository branches. The original main-branch README credits **Sudhanshu Shankar and Isaac Lin**. The ROS 2 package remains in its original experimental state, and any upstream Crazyswarm2 components retain their own licenses in the upstream project.

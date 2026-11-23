@@ -2,8 +2,10 @@ name: ROS 2 Humble cloud build
 
 on:
   push:
-    branches: [chore/consolidate-cyclic-pursuit]
+    branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

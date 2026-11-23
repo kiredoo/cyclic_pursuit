@@ -26,3 +26,6 @@ venv/
 *.mcap
 *.npy
 *.mp4
+
+# Generated numerical simulation and evaluation outputs (CI uploads separately)
+artifacts/
